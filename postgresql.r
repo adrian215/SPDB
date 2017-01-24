@@ -1,9 +1,11 @@
 # install.packages("RPostgreSQL")
 # install.packages("geosphere")
 # install.packages("fpc")
+install.packages("GetoptLong")
 require("RPostgreSQL")
 library("geosphere")
 library("fpc")
+library("GetoptLong")
 
 # loads the PostgreSQL driver
 drv <- dbDriver("PostgreSQL")
@@ -24,6 +26,10 @@ checkBusStop <- function (loid) {
   
   calcVelocity <- function(df) {
     df['velocity'] <- 1000
+    
+    if (nrow(df) < 2) {
+      return(df)
+    }
     
     for (i in 2:nrow(df)) {
       row <- df[i,]
@@ -47,32 +53,28 @@ checkBusStop <- function (loid) {
   }
   
   
-  print('Wyszukiwanie lokalizacji przystanku: ')
-  print(loid)
-  select <- "select * from csipstoppoint p where loid = 1"
-  
+  qqcat('Wyszukiwanie lokalizacji przystanku: @{loid}')
+  select <- qq("select * from csipstoppoint p where loid = @{loid}")
   busStop <- dbGetQuery(con, select)
-  print('Pobieranie listy historii lokalizacji pojazdow w poblizu przystanku...')
-  res <- dbGetQuery(
-    con,
-    'select * from csiptrace t where
-    earth_distance (ll_to_earth(53.152122, 23.125016), ll_to_earth(t.latitude, t.longitude)) < 50 limit 1000'
-  )
+  
+  qqcat('Pobieranie listy historii lokalizacji pojazdow w poblizu przystanku...\n')
+  select <- qq('select * from csiptrace t where
+    earth_distance (ll_to_earth(@{busStop$latitude}, @{busStop$longitude}), ll_to_earth(t.latitude, t.longitude)) < 50 limit 1000')
+  res <- dbGetQuery(con, select)
   
   data <- res[order(res['regtime']),]
   
   allV <- data.frame()
   for (vehicleid in unique(data$vehicleid)) {
-    print('Wyliczanie predkosci dla pojazdu')
-    print(vehicleid)
+    qqcat('Wyliczanie predkosci dla pojazdu @{vehicleid} \n')
     selected <- data[data$vehicleid == vehicleid, ]
     velocities <- calcVelocity(selected)
     allV <- rbind(allV, velocities)
   }
   
-  print('Wyznaczenie punktow postoju pojazdow w poblizu przystanku...')
+  qqcat('Wyznaczenie punktow postoju pojazdow w poblizu przystanku...\n')
   stop <- allV[allV$velocity < 1, ]
-  print('Optymalizacja punktow postoju...')
+  qqcat('Optymalizacja punktow postoju...\n')
   clustered <- cluster(stop)
   
   newLocation <- clustered[clustered$dist == min(clustered$dist), ]
@@ -80,4 +82,5 @@ checkBusStop <- function (loid) {
   print(newLocation)
   print('Poprzednia lokalizacja:')
   print(busStop[c('latitude', 'longitude')])
+  newLocation
 }
