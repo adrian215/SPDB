@@ -17,10 +17,14 @@ con <- dbConnect(drv, dbname = "spdb",
 
 # check for the cartable
 dbExistsTable(con, "csiptrace")
+result <- data.frame()
+for (i in 1:100) {
+  qqcat("Wykonywanie aktualizacji dla przysztanku loid=@{i}")
+  stop <- checkBusStop(i)
+  result <- rbind(result, stop)
+}
 
-loid <- as.integer(1)
-
-checkBusStop(1)
+write.csv(result, "spdb-result.csv")
 
 checkBusStop <- function (loid) {
   
@@ -53,7 +57,7 @@ checkBusStop <- function (loid) {
   }
   
   
-  qqcat('Wyszukiwanie lokalizacji przystanku: @{loid}')
+  qqcat('Wyszukiwanie lokalizacji przystanku: @{loid}\n')
   select <- qq("select * from csipstoppoint p where loid = @{loid}")
   busStop <- dbGetQuery(con, select)
   
@@ -82,5 +86,8 @@ checkBusStop <- function (loid) {
   print(newLocation)
   print('Poprzednia lokalizacja:')
   print(busStop[c('latitude', 'longitude')])
-  newLocation
+  busStop$latitude <- newLocation$latitude
+  busStop$longitude <- newLocation$longitude
+  busStop$dist <- newLocation$dist
+  busStop
 }
