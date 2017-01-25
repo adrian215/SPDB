@@ -1,7 +1,7 @@
 # install.packages("RPostgreSQL")
 # install.packages("geosphere")
 # install.packages("fpc")
-install.packages("GetoptLong")
+# install.packages("GetoptLong")
 require("RPostgreSQL")
 library("geosphere")
 library("fpc")
@@ -18,8 +18,8 @@ con <- dbConnect(drv, dbname = "spdb",
 # check for the cartable
 dbExistsTable(con, "csiptrace")
 result <- data.frame()
-for (i in 1:100) {
-  qqcat("Wykonywanie aktualizacji dla przysztanku loid=@{i}")
+for (i in 1:1) {
+  qqcat("Wykonywanie aktualizacji dla przystanku loid=@{i}")
   stop <- checkBusStop(i)
   result <- rbind(result, stop)
 }
@@ -79,15 +79,19 @@ checkBusStop <- function (loid) {
   qqcat('Wyznaczenie punktow postoju pojazdow w poblizu przystanku...\n')
   stop <- allV[allV$velocity < 1, ]
   qqcat('Optymalizacja punktow postoju...\n')
-  clustered <- cluster(stop)
-  
-  newLocation <- clustered[clustered$dist == min(clustered$dist), ]
-  print('Nowa lokalizacja:')
-  print(newLocation)
-  print('Poprzednia lokalizacja:')
-  print(busStop[c('latitude', 'longitude')])
-  busStop$latitude <- newLocation$latitude
-  busStop$longitude <- newLocation$longitude
-  busStop$dist <- newLocation$dist
+  busStop$dist <- 0
+  tryCatch({
+    clustered <- cluster(stop)
+    newLocation <- clustered[clustered$dist == min(clustered$dist), ]
+    print('Nowa lokalizacja:')
+    print(newLocation)
+    print('Poprzednia lokalizacja:')
+    print(busStop[c('latitude', 'longitude')])
+    busStop$latitude <- newLocation$latitude
+    busStop$longitude <- newLocation$longitude
+    busStop$dist <- newLocation$dist
+  }, error = function (e) {
+    qqcat("Nie można wyznaczyć kilku grup punktów")
+  })
   busStop
 }
